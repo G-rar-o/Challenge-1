@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Verificación de argumentos
+if [ $# -ne 6 ]; then
+    echo "Uso: $0 <nombre_maquina> <tipo_SO> <num_cpus> <ram_GB> <vram_MB> <tam_disco_GB>"
+    exit 1
+fi
+
+# Asignación de argumentos a variables
+nombre_maquina="prueba"
+tipo_SO="Debian_64"
+num_cpus=1
+ram_GB=2
+vram_MB=2
+tam_disco_GB=20
+
+# Crear la máquina virtual
+VBoxManage createvm --name "$nombre_maquina" --ostype "$tipo_SO" --register
+
+# Configurar CPU y memoria RAM
+VBoxManage modifyvm "$nombre_maquina" --cpus "$num_cpus"
+VBoxManage modifyvm "$nombre_maquina" --memory "$ram_GB"GB
+
+# Configurar VRAM
+VBoxManage modifyvm "$nombre_maquina" --vram "$vram_MB"
+
+# Crear disco duro virtual
+VBoxManage createmedium disk --filename "$nombre_maquina.vdi" --size "$tam_disco_GB"GB
+
+# Asociar disco duro virtual a la máquina virtual
+VBoxManage storagectl "$nombre_maquina" --name "SATA Controller" --add sata --controller IntelAhci
+VBoxManage storageattach "$nombre_maquina" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$nombre_maquina.vdi"
+
+# Crear y configurar controlador IDE para CD/DVD
+VBoxManage storagectl "$nombre_maquina" --name "IDE Controller" --add ide
+VBoxManage storageattach "$nombre_maquina" --storagectl "IDE Controller" --port 0 --device 0 --type dvddrive --medium emptydrive
+
+# Imprimir configuración
+echo "Configuración creada y configurada:"
+echo "Nombre de la máquina virtual: $nombre_maquina"
+echo "Tipo de sistema operativo: $tipo_SO"
+echo "Número de CPUs: $num_cpus"
+echo "Memoria RAM: $ram_GB GB"
+echo "VRAM: $vram_MB MB"
+echo "Tamaño del disco duro virtual: $tam_disco_GB GB"
+echo "Controlador SATA creado y asociado al disco duro virtual."
+echo "Controlador IDE creado y asociado para CD/DVD."
+
+exit 0
