@@ -1,39 +1,54 @@
 #!/bin/bash
 
 # Verificación de argumentos
-if [ $# -ne 6 ]; then
-    echo "Uso: $0 <nombre_maquina> <tipo_SO> <num_cpus> <ram_GB> <vram_MB> <tam_disco_GB>"
+if [ $# -ne 8 ]; then
+    echo "Uso: $0 <nombre_maquina> <tipo_SO> <num_cpus> <ram_GB> <vram_MB> <tam_disco_GB> <nombre_controlador_SATA> <nombre_controlador_IDE>"
     exit 1
 fi
 
-# Asignación de argumentos a variables
+# Asignación de variables con los valores fijos proporcionados
 nombre_maquina="prueba"
 tipo_SO="Debian_64"
 num_cpus=1
 ram_GB=2
 vram_MB=2
 tam_disco_GB=20
+nombre_controlador_SATA="ControladorSATA"
+nombre_controlador_IDE="ControladorIDE"
 
 # Crear la máquina virtual
 VBoxManage createvm --name "$nombre_maquina" --ostype "$tipo_SO" --register
 
+# Verificar si la creación de la máquina virtual fue exitosa
+if [ $? -ne 0 ]; then
+    echo "Error al crear la máquina virtual."
+    exit 1
+fi
+
 # Configurar CPU y memoria RAM
 VBoxManage modifyvm "$nombre_maquina" --cpus "$num_cpus"
-VBoxManage modifyvm "$nombre_maquina" --memory "$ram_GB"GB
+VBoxManage modifyvm "$nombre_maquina" --memory $(($ram_GB * 1024))
 
 # Configurar VRAM
 VBoxManage modifyvm "$nombre_maquina" --vram "$vram_MB"
 
 # Crear disco duro virtual
-VBoxManage createmedium disk --filename "$nombre_maquina.vdi" --size "$tam_disco_GB"GB
+DISCO_PATH="$HOME/VirtualBox VMs/$nombre_maquina/${nombre_maquina}_disk.vdi"
+VBoxManage createmedium disk --filename "$DISCO_PATH" --size $(($tam_disco_GB * 1024)) --format VDI
 
-# Asociar disco duro virtual a la máquina virtual
-VBoxManage storagectl "$nombre_maquina" --name "SATA Controller" --add sata --controller IntelAhci
-VBoxManage storageattach "$nombre_maquina" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$nombre_maquina.vdi"
+# Verificar si la creación del disco duro virtual fue exitosa
+if [ $? -ne 0 ]; then
+    echo "Error al crear el disco duro virtual."
+    exit 1
+fi
 
-# Crear y configurar controlador IDE para CD/DVD
-VBoxManage storagectl "$nombre_maquina" --name "IDE Controller" --add ide
-VBoxManage storageattach "$nombre_maquina" --storagectl "IDE Controller" --port 0 --device 0 --type dvddrive --medium emptydrive
+# Crear y asociar el controlador SATA
+VBoxManage storagectl "$nombre_maquina" --name "$nombre_controlador_SATA" --add sata --controller IntelAhci
+VBoxManage storageattach "$nombre_maquina" --storagectl "$nombre_controlador_SATA" --port 0 --device 0 --type hdd --medium "$DISCO_PATH"
+
+# Crear y asociar el controlador IDE para CD/DVD
+VBoxManage storagectl "$nombre_maquina" --name "$nombre_controlador_IDE" --add ide
+VBoxManage storageattach "$nombre_maquina" --storagectl "$nombre_controlador_IDE" --port 0 --device 0 --type dvddrive --medium emptydrive
 
 # Imprimir configuración
 echo "Configuración creada y configurada:"
@@ -43,7 +58,10 @@ echo "Número de CPUs: $num_cpus"
 echo "Memoria RAM: $ram_GB GB"
 echo "VRAM: $vram_MB MB"
 echo "Tamaño del disco duro virtual: $tam_disco_GB GB"
-echo "Controlador SATA creado y asociado al disco duro virtual."
-echo "Controlador IDE creado y asociado para CD/DVD."
+echo "Controlador SATA ($nombre_controlador_SATA) creado y asociado al disco duro virtual."
+echo "Controlador IDE ($nombre_controlador_IDE) creado y asociado para CD/DVD."
+
+# Mostrar la configuración final de la MV
+VBoxManage showvminfo "$nombre_maquina"
 
 exit 0
